@@ -94,8 +94,24 @@ $finalApk = Join-Path $realiseDir ("$baseName-v$version.apk")
 if ($LASTEXITCODE -ne 0) { throw 'apksigner failed' }
 
 # 规则 15：APK 只能存放在 realise；清理 build 下的中间 APK 与 v4 签名副产物
+# apksigner.bat 退出后句柄可能尚未释放，直接删除会静默失败，因此重试若干次
+for ($i = 0; $i -lt 6; $i++) {
+    Get-ChildItem -Path $buildDir -Filter *.apk -ErrorAction SilentlyContinue |
+        ForEach-Object { try { Remove-Item $_.FullName -Force -ErrorAction Stop } catch { } }
+    Remove-Item ($finalApk + '.idsig') -Force -ErrorAction SilentlyContinue
+    $left = @(Get-ChildItem -Path $buildDir -Filter *.apk -ErrorAction SilentlyContinue)
+    if ($left.Count -eq 0) { break }
+    Start-Sleep -Milliseconds 400
+}
 Remove-Item $unsignedApk, $alignedApk -Force -ErrorAction SilentlyContinue
-Remove-Item ($finalApk + '.idsig') -Force -ErrorAction SilentlyContinue
+
+# 规则 15 自检：realise 之外不得存在任何 APK
+$stray = @(Get-ChildItem -Path (Split-Path $root -Parent) -Recurse -Filter *.apk -ErrorAction SilentlyContinue |
+    Where-Object { $_.DirectoryName -ne $realiseDir })
+if ($stray.Count -gt 0) {
+    $stray | ForEach-Object { Write-Host "STRAY APK: $($_.FullName)" }
+    throw 'rule 15 violated: APK found outside realise'
+}
 
 & $apksigner verify --verbose $finalApk | Select-Object -First 4
 
