@@ -348,3 +348,25 @@
 **结束时间：** 2026-10-23 00:31
 
 **结果：** 自查 6 项违规已全部修正；本地仓库与首次提交完成；远程仓库待用户提供认证。
+
+### 2026-10-23 00:36 — GitHub 推送排查
+
+**任务内容：** 用户提供仓库地址 `https://github.com/illheartdark/feishudaka.git`，要求推送首次提交。
+
+**开始时间：** 2026-10-23 00:36
+
+**排查结果：**
+
+| 通道 | 结果 | 证据 |
+|---|---|---|
+| `https://github.com`（443） | ❌ 连接被重置 | `Recv failure: Connection was reset`；`GIT_CURL_VERBOSE` 显示 TCP 连接到 20.205.243.166 超时 |
+| `api.github.com` | ✅ HTTP 200 | Node 请求返回仓库元信息（id 1430003358，public） |
+| `ssh.github.com:443` | ✅ 链路通 | `Permission denied (publickey)`，说明只缺授权密钥 |
+| schannel | ❌ | `SEC_E_NO_CREDENTIALS`，已改用 `http.sslBackend=openssl` |
+| 凭据管理器 | 有 `git:https://github.com` 条目 | 但因连接被重置，认证阶段根本未到达 |
+
+**处理：** 在 `%TEMP%\daka-ssh\` 生成 ed25519 专用密钥（工作区之外，不入库），准备走 `ssh.github.com:443`。公钥已导出，等待用户在 GitHub 授权。
+
+**结束时间：** 2026-10-23 00:41
+
+**结果：** 推送仍未完成，阻塞点已从「无认证」变为「等待用户在 GitHub 添加公钥」；授权后一条命令即可推送。

@@ -98,4 +98,25 @@ git config http.sslBackend openssl
 | 凭据管理器 | `credential.helper` 为空，`~/.git-credentials` 不存在 | ❌ 无法静默认证 |
 | SSH 密钥 | `~/.ssh` 不存在，且沙箱禁止创建该目录 | ❌ 无法走 SSH |
 
-**结论：本地仓库与首次提交已完成；远程仓库创建与推送需要用户提供认证（PAT）或由用户自行创建并配置凭据。**
+**结论：本地仓库与首次提交已完成；远程仓库已存在（`illheartdark/feishudaka`，公开），但 `github.com:443` 被网络重置，标准 HTTPS 推送不可用。**
+
+## 9. 远程推送的可用通道（2026-10-23 00:40 实测）
+
+| 通道 | 结果 | 说明 |
+|---|---|---|
+| `https://github.com/...`（HTTPS 443） | ❌ `Recv failure: Connection was reset` | TCP 可连但 HTTP 层被重置 |
+| `api.github.com`（HTTPS 443） | ✅ HTTP 200 | 可读仓库元信息，可调 REST API |
+| `ssh.github.com:443` | ✅ `Permission denied (publickey)` | 链路通，仅缺授权密钥 |
+| schannel TLS 后端 | ❌ `SEC_E_NO_CREDENTIALS` | 已改用 OpenSSL |
+
+**选定方案：SSH over 443。**
+
+- 专用密钥：`%TEMP%\daka-ssh\id_daka`（**在工作区之外，未被提交**）
+- 公钥指纹前缀：`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXZI4k/jKocMKDVKcOcEgmP06xiZAw/0lv0uwoksS/g daka-assistant`
+- 待用户在 GitHub 添加授权（Deploy key 勾选 write，或账号 SSH key）后，使用：
+
+```powershell
+$env:GIT_SSH_COMMAND = "ssh -p 443 -i $env:TEMP\daka-ssh\id_daka -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL"
+git remote set-url origin ssh://git@ssh.github.com:443/illheartdark/feishudaka.git
+git push -u origin main
+```
