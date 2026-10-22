@@ -140,3 +140,23 @@ git push -u origin main
 |---|---|---|---|
 | 甲 | 用户提供 PAT → Node 调 `api.github.com`（已实测可达）走 Git Data API 建首个提交 | 绕开 SSH 与管道限制，一次成功 | Token 出现在对话中，建议用后即废 |
 | 乙 | 用户授权公钥 + 本会话提权执行一次 `git push` | 不传 token，后续可持续推送 | 需一次「完全权限」批准；每次推送仍受管道限制 |
+
+## 11. 推送完成记录（2026-10-23 00:52）
+
+**已通过 GitHub REST API（Node + `api.github.com`）把提交推送上去。** 过程与结果：
+
+| 步骤 | 结果 |
+|---|---|
+| Token 认证 | ✅ `illheartdark` |
+| 空仓库限制 | ⚠️ 空仓库无法调 Git Data API（`409 Git Repository is empty`），改用 Contents API 先落 `.gitignore` 作为根提交 |
+| 根提交 | `bd64603` `chore: 初始化仓库` |
+| 5 次历史重建 | ✅ `a9f2fbc` → `5415db7` → `1629b83` → `2afed2f` → `bf5ca31` |
+| 远端 `main` | `bf5ca316b06c7dc437911116f4612ccb12a019db` |
+| 远端提交数 / 文件数 | 6 / 26 |
+
+**必须知道的两点：**
+
+1. **远端是本项目在 GitHub 上的正式副本**：<https://github.com/illheartdark/feishudaka>
+2. **本地与远端的对象哈希不同**：远端提交由 API 重建，author/committer 时间与父链由 API 生成，因此 commit SHA 与本地不一致（本地 `c48c58e…66c9765` vs 远端 `a9f2fbc…bf5ca31`），**但文件内容一致（26 个文件）**。后续不要直接 `git pull` 合并两者；需要同步时，以远端为准重新 clone，或在本机有 SSH 凭据时用 `git push --force` 覆盖远端。
+
+**安全提醒：** 本次使用的 PAT 已出现在对话记录中，推送完成后应在 GitHub 设置中删除该 token。

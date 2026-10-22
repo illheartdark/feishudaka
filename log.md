@@ -401,3 +401,32 @@
 **结束时间：** 2026-10-23 00:40
 
 **结果：** 等待用户选择路线；本地 4 次提交完好，远程仓库仍为空。
+
+### 2026-10-23 00:41 — GitHub 首次推送完成（API 通道）
+
+**任务内容：** 用户先后提供 fine-grained token（无写权限）与 classic token，改用 REST API 推送。
+
+**开始时间：** 2026-10-23 00:41
+
+**过程：**
+
+| 尝试 | 结果 |
+|---|---|
+| fine-grained token | ❌ 建 blob 返回 `403 Resource not accessible by personal access token`（缺 Contents 写权限） |
+| classic token（`repo` 域） | ✅ 认证通过 |
+| 直接调 Git Data API | ❌ `409 Git Repository is empty`（空仓库不允许先建 blob/tree） |
+| 改用 Contents API 落根提交 | ✅ `bd64603` `chore: 初始化仓库` |
+| 重建 5 次历史 | ✅ `a9f2fbc` → `5415db7` → `1629b83` → `2afed2f` → `bf5ca31` |
+| 更新 `main` | ✅ PATCH 成功（首次误把 PATCH 目标写成当前头，已修正） |
+
+**结果核对：**
+
+- 远端提交 6 个、文件 26 个，与本地内容一致。
+- 远端 HEAD `bf5ca316b06c7dc437911116f4612ccb12a019db`。
+- **对象哈希与本地不同**：远端提交由 API 生成 author/committer 时间与父链，故 SHA 不等；内容一致。后续不可直接 `git pull` 合并两者。
+
+**安全：** 两个 token 均已出现在对话中，需在 GitHub 删除。
+
+**结束时间：** 2026-10-23 00:58
+
+**结果：** 首次推送完成，仓库地址 <https://github.com/illheartdark/feishudaka>。
