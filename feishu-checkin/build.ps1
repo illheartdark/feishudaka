@@ -30,6 +30,7 @@ $srcDir = Join-Path $root 'app\src\main\java'
 $resDir = Join-Path $root 'app\src\main\res'
 $manifest = Join-Path $root 'app\src\main\AndroidManifest.xml'
 $buildDir = Join-Path $root 'build'
+$realiseDir = Join-Path (Split-Path $root -Parent) 'realise'
 $classesDir = Join-Path $buildDir 'classes'
 $dexDir = Join-Path $buildDir 'dex'
 $flatDir = Join-Path $buildDir 'flat'
@@ -82,9 +83,12 @@ if (-not (Test-Path $keystore)) {
     & keytool -genkeypair -keystore $keystore -storepass android -keypass android -alias daka -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Daka Assistant, OU=Dev, O=Personal, L=Beijing, ST=Beijing, C=CN'
     if ($LASTEXITCODE -ne 0) { throw 'keytool failed' }
 }
-$finalApk = Join-Path $buildDir 'feishu-checkin.apk'
+$finalApk = Join-Path $realiseDir 'feishu-checkin.apk'
 & $apksigner sign --ks $keystore --ks-pass pass:android --key-pass pass:android --out $finalApk $alignedApk
 if ($LASTEXITCODE -ne 0) { throw 'apksigner failed' }
+
+# 规则 15：APK 只能存放在 realise；清理 build 下的中间 APK
+Remove-Item $unsignedApk, $alignedApk -Force -ErrorAction SilentlyContinue
 
 & $apksigner verify --verbose $finalApk | Select-Object -First 4
 

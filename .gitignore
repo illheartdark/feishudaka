@@ -6,6 +6,10 @@ feishu-checkin/build/
 *.dex
 *.class
 
+# 规则 15：realise 下的 APK 允许入库（唯一允许存放 APK 的位置）
+!realise/
+!realise/*.apk
+
 # 本地 SDK 路径
 local.properties
 

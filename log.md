@@ -430,3 +430,33 @@
 **结束时间：** 2026-10-23 00:58
 
 **结果：** 首次推送完成，仓库地址 <https://github.com/illheartdark/feishudaka>。
+
+### 2026-10-23 01:01 — 新增规则 15：APK 只存放于 realise 文件夹
+
+**任务内容：** 用户要求在 `agent.md`（1）中新增规则：生产的 APK 文件只能存放于 `realise` 文件夹。
+
+**开始时间：** 2026-10-23 01:01
+
+**执行计划：**
+
+1. 在 `agent.md`（1）规则部分新增「规则 15」，并在文件编号对照表登记新目录的两个文件（33、34）。
+2. 新建 `realise\说明.md（33）`、`realise\修改日记.md（34）`。
+3. 修改 `feishu-checkin\build.ps1`：签名产物直接输出到 `realise\`，中间 APK 构建后删除。
+4. 把现有 `feishu-checkin\build\feishu-checkin.apk` 迁到 `realise\`。
+5. 调整 `.gitignore`：允许 `realise\*.apk` 入库，其余构建产物继续忽略。
+6. 同步 `feishu-checkin\说明.md（31）`、两处修改日记与 `project.md（6）`。
+
+**命名确认：** 用户原文为「realise」，按字面创建该目录；若本意为 `release`，需用户确认后改名（涉及路径与文档多处）。
+
+**结束时间：** 2026-10-23 01:02
+
+**结果：**
+
+| 验证项 | 结果 |
+|---|---|
+| `agent.md`（1）规则数 | 15（新增第 15 条） |
+| 编号表 | 已登记 33、34 |
+| 构建产物 | `realise\feishu-checkin.apk`（24.5 KB，v2/v3 签名） |
+| 全工作区 APK 数量 | 1（仅 realise 内） |
+| `build\` 残留 APK | 0 |
+| `build.ps1 -Clean` | 7 步通过，退出码 0 |

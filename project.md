@@ -42,13 +42,15 @@
 
 ```
 feishudaka\
-├── agent.md          （1） 工作行为规则
+├── agent.md          （1） 工作行为规则（含规则 15：APK 只能放 realise）
 ├── skill.md          （2） Skill 功能归纳（25 个 DSH 可用 Skill）
 ├── plan.md           （3） 项目计划
 ├── git.md            （4） 版本管理手册与代码更新记录
 ├── log.md            （5） 行为日志
 ├── project.md        （6） 项目说明（本文件）
-└── 修改日记.md       （27）根目录改动记录
+├── 修改日记.md       （27）根目录改动记录
+├── realise\          （33/34）**APK 唯一存放目录**
+└── feishu-checkin\   （31/32）Android 工程源码与构建脚本
 ```
 
 编号表中登记但**当前不存在**的文件（待建，不得改动其编号）：
