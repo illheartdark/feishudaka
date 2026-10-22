@@ -160,3 +160,14 @@ git push -u origin main
 2. **本地与远端的对象哈希不同**：远端提交由 API 重建，author/committer 时间与父链由 API 生成，因此 commit SHA 与本地不一致（本地 `c48c58e…66c9765` vs 远端 `a9f2fbc…bf5ca31`），**但文件内容一致（26 个文件）**。后续不要直接 `git pull` 合并两者；需要同步时，以远端为准重新 clone，或在本机有 SSH 凭据时用 `git push --force` 覆盖远端。
 
 **安全提醒：** 本次使用的 PAT 已出现在对话记录中，推送完成后应在 GitHub 设置中删除该 token。
+
+### 11.1 后续推送约定（2026-10-23 01:12）
+
+`github.com:443` 在本机被重置、SSH 又被沙箱命名管道限制，因此后续每次推送都沿用同一方式：把本地新增提交逐个用 `git archive` 导出为 blobs/trees，再用 Git Data API 接到**远端当前 HEAD** 之后，最后 PATCH `refs/heads/main`。
+
+要点：
+
+- 每次推送前先查远端 HEAD，作为 `INITIAL_PARENT`；
+- 只推「上次同步点之后」的提交，避免重复；
+- 推送完成后核对远端提交数与文件数；
+- 本地与远端哈希始终不同（对象由 API 重建），**以内容一致为准**，不要 `git pull` 合并。
