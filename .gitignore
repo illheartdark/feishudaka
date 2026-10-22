@@ -27,3 +27,4 @@ local.properties
 *.log
 Thumbs.db
 Desktop.ini
+*.idsig
