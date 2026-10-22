@@ -1,0 +1,93 @@
+<#
+.SYNOPSIS
+    Offline Android APK build for the check-in assistant (no Gradle required).
+.DESCRIPTION
+    Pipeline: aapt2 compile -> aapt2 link -> javac -> d8 -> jar (add classes.dex)
+              -> zipalign -> apksigner.
+    NOTE: kept ASCII-only on purpose; Windows PowerShell 5.1 reads BOM-less UTF-8
+          files as GBK and would break on non-ASCII literals.
+#>
+param(
+    [switch]$Clean
+)
+
+$ErrorActionPreference = 'Stop'
+
+$root = $PSScriptRoot
+$sdk = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+$buildTools = Join-Path $sdk 'build-tools\35.0.0'
+$androidJar = Join-Path $sdk 'platforms\android-35\android.jar'
+
+if (-not (Test-Path $androidJar)) { throw "android.jar not found: $androidJar" }
+if (-not (Test-Path $buildTools)) { throw "build-tools not found: $buildTools" }
+
+$aapt2 = Join-Path $buildTools 'aapt2.exe'
+$d8 = Join-Path $buildTools 'd8.bat'
+$zipalign = Join-Path $buildTools 'zipalign.exe'
+$apksigner = Join-Path $buildTools 'apksigner.bat'
+
+$srcDir = Join-Path $root 'app\src\main\java'
+$resDir = Join-Path $root 'app\src\main\res'
+$manifest = Join-Path $root 'app\src\main\AndroidManifest.xml'
+$buildDir = Join-Path $root 'build'
+$classesDir = Join-Path $buildDir 'classes'
+$dexDir = Join-Path $buildDir 'dex'
+$flatDir = Join-Path $buildDir 'flat'
+
+if ($Clean -and (Test-Path $buildDir)) { Remove-Item $buildDir -Recurse -Force }
+foreach ($d in @($buildDir, $classesDir, $dexDir, $flatDir)) {
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+}
+
+Write-Host '[1/7] aapt2 compile resources'
+& $aapt2 compile --dir $resDir -o $flatDir
+if ($LASTEXITCODE -ne 0) { throw 'aapt2 compile failed' }
+
+$flatFiles = @(Get-ChildItem $flatDir -Filter *.flat | ForEach-Object { $_.FullName })
+if ($flatFiles.Count -eq 0) { throw 'no compiled resources' }
+
+Write-Host '[2/7] aapt2 link'
+$unsignedApk = Join-Path $buildDir 'app.unsigned.apk'
+& $aapt2 link -o $unsignedApk -I $androidJar --manifest $manifest --min-sdk-version 26 --target-sdk-version 35 --auto-add-overlay @flatFiles
+if ($LASTEXITCODE -ne 0) { throw 'aapt2 link failed' }
+
+Write-Host '[3/7] javac'
+$sources = @(Get-ChildItem $srcDir -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+& javac -source 8 -target 8 -encoding UTF-8 -nowarn -classpath $androidJar -d $classesDir @sources
+if ($LASTEXITCODE -ne 0) { throw 'javac failed' }
+
+Write-Host '[4/7] d8'
+$classFiles = @(Get-ChildItem $classesDir -Recurse -Filter *.class | ForEach-Object { $_.FullName })
+& $d8 --lib $androidJar --min-api 26 --output $dexDir @classFiles
+if ($LASTEXITCODE -ne 0) { throw 'd8 failed' }
+
+Write-Host '[5/7] add classes.dex'
+Copy-Item (Join-Path $dexDir 'classes.dex') (Join-Path $buildDir 'classes.dex') -Force
+Push-Location $buildDir
+try {
+    & jar uf $unsignedApk 'classes.dex'
+    if ($LASTEXITCODE -ne 0) { throw 'jar failed' }
+} finally {
+    Pop-Location
+}
+
+Write-Host '[6/7] zipalign'
+$alignedApk = Join-Path $buildDir 'app.aligned.apk'
+& $zipalign -p -f 4 $unsignedApk $alignedApk
+if ($LASTEXITCODE -ne 0) { throw 'zipalign failed' }
+
+Write-Host '[7/7] apksigner'
+$keystore = Join-Path $root 'debug.keystore'
+if (-not (Test-Path $keystore)) {
+    & keytool -genkeypair -keystore $keystore -storepass android -keypass android -alias daka -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Daka Assistant, OU=Dev, O=Personal, L=Beijing, ST=Beijing, C=CN'
+    if ($LASTEXITCODE -ne 0) { throw 'keytool failed' }
+}
+$finalApk = Join-Path $buildDir 'feishu-checkin.apk'
+& $apksigner sign --ks $keystore --ks-pass pass:android --key-pass pass:android --out $finalApk $alignedApk
+if ($LASTEXITCODE -ne 0) { throw 'apksigner failed' }
+
+& $apksigner verify --verbose $finalApk | Select-Object -First 4
+
+$size = [math]::Round((Get-Item $finalApk).Length / 1KB, 1)
+Write-Host ''
+Write-Host "BUILD OK: $finalApk ($size KB)"
