@@ -113,10 +113,30 @@ git config http.sslBackend openssl
 
 - 专用密钥：`%TEMP%\daka-ssh\id_daka`（**在工作区之外，未被提交**）
 - 公钥指纹前缀：`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEXZI4k/jKocMKDVKcOcEgmP06xiZAw/0lv0uwoksS/g daka-assistant`
-- 待用户在 GitHub 添加授权（Deploy key 勾选 write，或账号 SSH key）后，使用：
-
-```powershell
+- 待用户在 GitHub 添加授权（Deploy key 勾选 write，或账号 SSH key）后，使用：```powershell
 $env:GIT_SSH_COMMAND = "ssh -p 443 -i $env:TEMP\daka-ssh\id_daka -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL"
 git remote set-url origin ssh://git@ssh.github.com:443/illheartdark/feishudaka.git
 git push -u origin main
 ```
+
+## 10. 二次受阻：密钥未授权 + 沙箱管道限制（2026-10-23 00:40）
+
+| 检查项 | 结果 |
+|---|---|
+| `github.com:22` | ✅ 端口可达 |
+| 专用密钥 SSH（22 与 443） | ❌ `Permission denied (publickey)`，密钥未在 GitHub 注册 |
+| ssh-agent | 未运行，无可用密钥 |
+| 远程仓库（API） | ✅ 存在且**为空**（`size=0`，`Git Repository is empty`） |
+| `git push` | ❌ `sh.exe: couldn't create signal pipe, Win32 error 5` |
+
+**两个独立阻塞：**
+
+1. **授权**：`git@github.com:owner/repo.git` 只是地址；GitHub 仍要求一把已注册的密钥。
+2. **沙箱**：Git 启动 SSH 需经 MSYS `sh.exe`，而本会话禁止创建命名管道，SSH 无法启动。
+
+**可行路线：**
+
+| 路线 | 做法 | 优点 | 代价 |
+|---|---|---|---|
+| 甲 | 用户提供 PAT → Node 调 `api.github.com`（已实测可达）走 Git Data API 建首个提交 | 绕开 SSH 与管道限制，一次成功 | Token 出现在对话中，建议用后即废 |
+| 乙 | 用户授权公钥 + 本会话提权执行一次 `git push` | 不传 token，后续可持续推送 | 需一次「完全权限」批准；每次推送仍受管道限制 |

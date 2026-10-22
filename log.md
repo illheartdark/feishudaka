@@ -367,6 +367,37 @@
 
 **处理：** 在 `%TEMP%\daka-ssh\` 生成 ed25519 专用密钥（工作区之外，不入库），准备走 `ssh.github.com:443`。公钥已导出，等待用户在 GitHub 授权。
 
-**结束时间：** 2026-10-23 00:41
+**结束时间：** 2026-10-23 00:40
 
 **结果：** 推送仍未完成，阻塞点已从「无认证」变为「等待用户在 GitHub 添加公钥」；授权后一条命令即可推送。
+
+### 2026-10-23 00:40 — 推送二次受阻：密钥未授权 + 沙箱管道限制
+
+**任务内容：** 用户要求改用 `git@github.com:illheartdark/feishudaka.git` 推送。
+
+**开始时间：** 2026-10-23 00:40
+
+**实测结果：**
+
+| 检查 | 结果 |
+|---|---|
+| `github.com:22` 端口 | ✅ 可达 |
+| 用专用密钥 SSH 到 `github.com:22` | ❌ `Permission denied (publickey)` |
+| 用专用密钥 SSH 到 `ssh.github.com:443` | ❌ `Permission denied (publickey)` |
+| ssh-agent 中的密钥 | 无（agent 未运行） |
+| 远程仓库状态（API） | ✅ 存在且**完全为空**（`size=0`，`Git Repository is empty`） |
+| `git push` | ❌ `sh.exe: couldn't create signal pipe, Win32 error 5` |
+
+**两个独立阻塞：**
+
+1. **授权**：`git@github.com:xxx` 只是地址，GitHub 仍需一把它认识的密钥；当前这把未授权。
+2. **沙箱**：Git 调用 SSH 时经 MSYS `sh.exe`，而沙箱禁止创建命名管道，SSH 无法在本会话内启动。
+
+**可用出路：**
+
+- 路线甲：用户提供 PAT → 用 Node 调 `api.github.com`（已实测可达）走 Git Data API 建首个提交，完全绕开 SSH 与管道限制。
+- 路线乙：用户授权公钥 + 本会话以完全权限执行一次 `git push`（需你批准提权）。
+
+**结束时间：** 2026-10-23 00:40
+
+**结果：** 等待用户选择路线；本地 4 次提交完好，远程仓库仍为空。
