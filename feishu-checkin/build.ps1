@@ -83,12 +83,19 @@ if (-not (Test-Path $keystore)) {
     & keytool -genkeypair -keystore $keystore -storepass android -keypass android -alias daka -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Daka Assistant, OU=Dev, O=Personal, L=Beijing, ST=Beijing, C=CN'
     if ($LASTEXITCODE -ne 0) { throw 'keytool failed' }
 }
-$finalApk = Join-Path $realiseDir 'feishu-checkin.apk'
+# Version comes from AndroidManifest.xml so the file name always matches the build.
+$manifestText = Get-Content $manifest -Raw -Encoding UTF8
+$verMatch = [regex]::Match($manifestText, 'versionName="([^"]+)"')
+$version = if ($verMatch.Success) { $verMatch.Groups[1].Value } else { 'dev' }
+# ASCII-only source: build the Chinese product name from code points (avoid PS 5.1 GBK parsing issue).
+$baseName = [string]([char]0x98DE) + [char]0x4E66 + [char]0x6253 + [char]0x5361
+$finalApk = Join-Path $realiseDir ("$baseName-v$version.apk")
 & $apksigner sign --ks $keystore --ks-pass pass:android --key-pass pass:android --out $finalApk $alignedApk
 if ($LASTEXITCODE -ne 0) { throw 'apksigner failed' }
 
-# 规则 15：APK 只能存放在 realise；清理 build 下的中间 APK
+# 规则 15：APK 只能存放在 realise；清理 build 下的中间 APK 与 v4 签名副产物
 Remove-Item $unsignedApk, $alignedApk -Force -ErrorAction SilentlyContinue
+Remove-Item ($finalApk + '.idsig') -Force -ErrorAction SilentlyContinue
 
 & $apksigner verify --verbose $finalApk | Select-Object -First 4
 

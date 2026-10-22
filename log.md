@@ -460,3 +460,18 @@
 | 全工作区 APK 数量 | 1（仅 realise 内） |
 | `build\` 残留 APK | 0 |
 | `build.ps1 -Clean` | 7 步通过，退出码 0 |
+
+### 2026-10-23 01:05 — APK 改名带版本号 + 推送 GitHub
+
+**任务内容：** 用户要求：① 把构建产物命名为「飞书打卡」并附版本号，放入指定目录（`realise\`）；② 推送到 GitHub。
+
+**开始时间：** 2026-10-23 01:05
+
+**执行计划：**
+
+1. `build.ps1` 从 `AndroidManifest.xml` 读取 `versionName`，输出 `realise\飞书打卡-v<版本>.apk`；脚本保持纯 ASCII，中文名用 Unicode 码点拼装（避免 PS 5.1 的 GBK 解析问题）。
+2. 删除旧的 `realise\feishu-checkin.apk`，重新构建生成新文件名。
+3. 同步 `realise\说明.md（33）` 的命名约定、三处修改日记、`feishu-checkin\说明.md（31）`。
+4. 本地提交后，用 API 把 `bf0302f..HEAD` 的提交接到远端 HEAD（`60f0a22`）之后推送。
+
+**结束时间：** 进行中
